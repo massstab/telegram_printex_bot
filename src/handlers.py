@@ -1,5 +1,4 @@
 import os
-
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
 from to_latex import imagify
 
@@ -35,15 +34,26 @@ class SmallHandler(Updater):
 
     def texify(self):
         # sends raw telegram input code to texify.tex
-        texinput_handler = MessageHandler(filters=Filters.text & (~Filters.command), callback=self.echo_latex)
-        self.dispatcher.add_handler(texinput_handler)
+        texinput_normal_handler = MessageHandler(filters=Filters.text & (~Filters.command), callback=self.echo_latex_normal)
+        texinput_edited_handler = MessageHandler(filters=Filters.update.edited_message & (~Filters.command), callback=self.echo_latex_edited)
+        self.dispatcher.add_handler(texinput_edited_handler)
+        self.dispatcher.add_handler(texinput_normal_handler)
 
 
-    def echo_latex(self, update, context):
-        imagify(update.message.text)
-        with open("usercode.png", "rb") as f:
-            context.bot.send_photo(chat_id=update.effective_chat.id, photo=f)
+    def echo_latex_normal(self, update, context):
+        msg = update.message.text
+        if imagify(msg):
+            with open("usercode.png", "rb") as f:
+                context.bot.send_photo(chat_id=update.effective_chat.id, photo=f)
         os.chdir('../')
+
+    def echo_latex_edited(self, update, context):
+        msg = update.edited_message.text
+        if imagify(msg):
+            with open("usercode.png", "rb") as f:
+                context.bot.send_photo(chat_id=update.effective_chat.id, photo=f)
+        os.chdir('../')
+
 
 
 
