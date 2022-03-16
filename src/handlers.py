@@ -1,5 +1,9 @@
 import os
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
+import time
+import requests
+from uuid import uuid4
+from telegram import InlineQueryResultCachedPhoto, Bot
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, InlineQueryHandler
 from to_latex import imagify
 
 class SmallHandler(Updater):
@@ -34,26 +38,47 @@ class SmallHandler(Updater):
 
     def texify(self):
         # sends raw telegram input code to texify.tex
-        texinput_normal_handler = MessageHandler(filters=Filters.text & (~Filters.command), callback=self.echo_latex_normal)
-        texinput_edited_handler = MessageHandler(filters=Filters.update.edited_message & (~Filters.command), callback=self.echo_latex_edited)
+        texinput_normal_handler = MessageHandler(filters=Filters.text, callback=self.echo_latex_normal)
+        texinput_edited_handler = MessageHandler(filters=Filters.update.edited_message, callback=self.echo_latex_edited)
+        texinput_inline_handler = InlineQueryHandler(callback=self.echo_latex_inline)
+
         self.dispatcher.add_handler(texinput_edited_handler)
         self.dispatcher.add_handler(texinput_normal_handler)
+        self.dispatcher.add_handler(texinput_inline_handler)
 
 
     def echo_latex_normal(self, update, context):
         msg = update.message.text
+        firstword = msg.split(' ', 1)[0]
+        if firstword == '/tex' or firstword == '/tex@printexifyBot':
+            msg = msg.split(' ', 1)[1]
         if imagify(msg):
-            with open("usercode.png", "rb") as f:
+            with open("tex/usercode.jpg", "rb") as f:
                 context.bot.send_photo(chat_id=update.effective_chat.id, photo=f)
-        os.chdir('../')
+
 
     def echo_latex_edited(self, update, context):
         msg = update.edited_message.text
+        firstword = msg.split(' ', 1)[0]
+        if firstword == '/tex' or firstword == '/tex@printexifyBot':
+            msg = msg.split(' ', 1)[1]
         if imagify(msg):
-            with open("usercode.png", "rb") as f:
+            with open("tex/usercode.jpg", "rb") as f:
                 context.bot.send_photo(chat_id=update.effective_chat.id, photo=f)
-        os.chdir('../')
 
-
-
-
+    def echo_latex_inline(self, update, context):
+        query = update.inline_query.query
+        # time.sleep(2)
+        if imagify(query):
+            privchannID = self.own_id
+            infophoto = context.bot.sendPhoto(chat_id=privchannID, photo=open('tex/usercode.jpg', 'rb'), caption=query)
+            thumbphoto = infophoto["photo"][0]["file_id"]
+            originalphoto = infophoto["photo"][-1]["file_id"]
+            results = [
+                InlineQueryResultCachedPhoto(
+                    id=uuid4(),
+                    title="CachedPhoto",
+                    photo_file_id=originalphoto
+                )
+            ]
+            update.inline_query.answer(results)

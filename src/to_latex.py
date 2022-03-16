@@ -8,10 +8,9 @@ def imagify(usercode):
     print(os.getcwd())
     with open('tex/usercode.tex', 'w') as f:
         f.write(main)
-    os.chdir('tex')
-    code = subprocess.call(['pdflatex', '-halt-on-error', 'usercode.tex'])
+    code = subprocess.call(['pdflatex', '-halt-on-error', '-output-directory', 'tex', 'tex/usercode.tex'])
     if code == 0:
-        subprocess.call(['convert', '-density', '600', '-bordercolor', 'white', '-border', '10', 'usercode.pdf', 'usercode.png'])
+        subprocess.call(['convert', '-density', '600', '-bordercolor', 'white', '-border', '10', 'tex/usercode.pdf', 'tex/usercode.jpg'])
         return True
     else:
         return False
