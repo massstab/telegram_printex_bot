@@ -1,10 +1,32 @@
-import os
+#!/usr/bin/env python
+
 import time
-import requests
+import subprocess
 from uuid import uuid4
-from telegram import InlineQueryResultCachedPhoto, Bot
+from telegram import InlineQueryResultCachedPhoto
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, InlineQueryHandler
-from to_latex import imagify
+
+
+def imagify(usercode):
+    """
+    Compiles the sends queries from the telegram user to a latex pdf and converts it to a jpg image.
+    :param usercode: The LaTeX code to compile
+    :return: Return True if the code was compiled without an error and False otherwise.
+    """
+    head = r"\documentclass[varwidth, border=1]{standalone}" \
+           r"\begin{document}"
+    tail = r"\end{document}"
+    main = head + usercode + tail
+    with open('tex/usercode.tex', 'w') as f:
+        f.write(main)
+    code = subprocess.call(['pdflatex', '-halt-on-error', '-output-directory', 'tex', 'tex/usercode.tex'])
+    if code == 0:
+        subprocess.call(['convert', '-density', '600', '-bordercolor', 'white', '-border', '0', 'tex/usercode.pdf',
+                         'tex/usercode.jpg'])
+        return True
+    else:
+        return False
+
 
 class SmallHandler(Updater):
     def __init__(self, updater, dispatcher, own_id, bot_token):
@@ -37,7 +59,10 @@ class SmallHandler(Updater):
         document.close()
 
     def texify(self):
-        # sends raw telegram input code to texify.tex
+        """
+        Creates the handlers and adds them to the dispatcher
+        :return:
+        """
         texinput_normal_handler = MessageHandler(filters=Filters.text, callback=self.echo_latex_normal)
         texinput_edited_handler = MessageHandler(filters=Filters.update.edited_message, callback=self.echo_latex_edited)
         texinput_inline_handler = InlineQueryHandler(callback=self.echo_latex_inline)
@@ -46,8 +71,10 @@ class SmallHandler(Updater):
         self.dispatcher.add_handler(texinput_normal_handler)
         self.dispatcher.add_handler(texinput_inline_handler)
 
-
     def echo_latex_normal(self, update, context):
+        '''
+        This is the callback function for the messagehandler.
+        '''
         msg = update.message.text
         firstword = msg.split(' ', 1)[0]
         if firstword == '/tex' or firstword == '/tex@printexifyBot':
@@ -56,8 +83,10 @@ class SmallHandler(Updater):
             with open("tex/usercode.jpg", "rb") as f:
                 context.bot.send_photo(chat_id=update.effective_chat.id, photo=f)
 
-
     def echo_latex_edited(self, update, context):
+        '''
+        This is the callback function for the messagehandler when a message is edited.
+        '''
         msg = update.edited_message.text
         firstword = msg.split(' ', 1)[0]
         if firstword == '/tex' or firstword == '/tex@printexifyBot':
@@ -67,8 +96,11 @@ class SmallHandler(Updater):
                 context.bot.send_photo(chat_id=update.effective_chat.id, photo=f)
 
     def echo_latex_inline(self, update, context):
+        '''
+        This is the callback function for the handler for messages in inline mode.
+        '''
         query = update.inline_query.query
-        # time.sleep(2)
+        time.sleep(2)
         if imagify(query):
             privchannID = self.own_id
             infophoto = context.bot.sendPhoto(chat_id=privchannID, photo=open('tex/usercode.jpg', 'rb'), caption=query)
